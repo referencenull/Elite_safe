@@ -9,13 +9,18 @@
         body { background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
         canvas { display: block; }
         #info { position: absolute; bottom: 20px; color: #0f0; font-family: "Courier New", monospace; font-size: 14px; text-align: center; }
-        #btn { position: absolute; top: 20px; right: 20px; background: #000; color: #0f0; border: 1px solid #0f0; padding: 8px 16px; font-family: "Courier New", monospace; font-size: 14px; cursor: pointer; }
-        #btn:hover { background: #0f0; color: #000; }
+        .btn { position: absolute; background: #000; color: #0f0; border: 1px solid #0f0; padding: 8px 16px; font-family: "Courier New", monospace; font-size: 14px; cursor: pointer; }
+        .btn:hover { background: #0f0; color: #000; }
+        #btn { top: 20px; right: 20px; }
+        #themeBtn { top: 20px; right: 180px; }
+        #controls { position: absolute; top: 50px; left: 20px; color: #0f0; font-family: "Courier New", monospace; font-size: 11px; opacity: 0.7; }
     </style>
 </head>
 <body>
     <canvas id="c"></canvas>
-    <button id="btn" onclick="toggleView()">COCKPIT VIEW</button>
+    <button class="btn" id="btn" onclick="toggleView()">COCKPIT VIEW</button>
+    <button class="btn" id="themeBtn" onclick="cycleTheme()">THEME: GREEN</button>
+    <div id="controls">ARROWS: STEER SHIP</div>
     <div id="info">ELITE - WIREFRAME DEMO</div>
     <script>
         const canvas = document.getElementById('c');
@@ -53,6 +58,56 @@
             y: Math.random() * 600 - 300,
             z: Math.random() * 500 + 100
         }));
+
+        // Väriteemat (Issue #2)
+        const themes = [
+            { name: 'GREEN', color: '#0f0' },
+            { name: 'AMBER', color: '#ffa500' },
+            { name: 'CYAN', color: '#0ff' },
+            { name: 'WHITE', color: '#fff' },
+            { name: 'RED', color: '#f44' },
+        ];
+        let currentTheme = 0;
+        let themeColor = themes[0].color;
+
+        function cycleTheme() {
+            currentTheme = (currentTheme + 1) % themes.length;
+            themeColor = themes[currentTheme].color;
+            document.getElementById('themeBtn').textContent = 'THEME: ' + themes[currentTheme].name;
+            // Päivitä UI-elementtien värit
+            document.querySelectorAll('.btn').forEach(b => {
+                b.style.color = themeColor;
+                b.style.borderColor = themeColor;
+            });
+            document.getElementById('info').style.color = themeColor;
+            document.getElementById('controls').style.color = themeColor;
+        }
+
+        // Nuolinäppäinohjaus (Issue #3)
+        let shipRotX = 0, shipRotY = 0;
+        let inputX = 0, inputY = 0;
+        const keys = {};
+
+        document.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            e.preventDefault();
+        });
+        document.addEventListener('keyup', e => {
+            keys[e.key] = false;
+        });
+
+        function updateInput() {
+            const turnSpeed = 0.03;
+            if (keys['ArrowLeft']) inputY -= turnSpeed;
+            if (keys['ArrowRight']) inputY += turnSpeed;
+            if (keys['ArrowUp']) inputX -= turnSpeed;
+            if (keys['ArrowDown']) inputX += turnSpeed;
+            // Vaimeneminen
+            inputX *= 0.95;
+            inputY *= 0.95;
+            shipRotX += inputX;
+            shipRotY += inputY;
+        }
 
         let angleX = 0, angleY = 0, angleZ = 0;
         let cockpitView = false;
@@ -105,7 +160,7 @@
         let enemyDX = 0.3, enemyDY = 0.2;
 
         function drawCockpit() {
-            ctx.strokeStyle = '#0f0';
+            ctx.strokeStyle = themeColor;
             ctx.lineWidth = 2;
 
             // Ikkunakehys - trapetsi
@@ -138,7 +193,7 @@
             ctx.stroke();
 
             // Tähtäin keskellä
-            ctx.strokeStyle = '#0f0';
+            ctx.strokeStyle = themeColor;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(390, 250);
@@ -150,7 +205,7 @@
             ctx.stroke();
 
             // Radar/skanneri alaosassa
-            ctx.strokeStyle = '#0f0';
+            ctx.strokeStyle = themeColor;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.ellipse(400, 520, 100, 40, 0, 0, Math.PI * 2);
@@ -163,10 +218,10 @@
             ctx.stroke();
 
             // Nopeusmittari vasemmalle
-            ctx.strokeStyle = '#0f0';
+            ctx.strokeStyle = themeColor;
             ctx.lineWidth = 1;
             ctx.font = '10px Courier New';
-            ctx.fillStyle = '#0f0';
+            ctx.fillStyle = themeColor;
             ctx.fillText('SPD', 70, 450);
             ctx.strokeRect(65, 455, 15, 80);
             ctx.fillRect(65, 535 - 50, 15, 50); // nopeus
@@ -197,9 +252,9 @@
         }
 
         function drawEnemyShip() {
-            // Vihollisalus liikkuu
-            enemyX += enemyDX;
-            enemyY += enemyDY;
+            // Vihollisalus liikkuu + reagoi pelaajan ohjaukseen
+            enemyX += enemyDX - inputY * 5;
+            enemyY += enemyDY - inputX * 5;
             enemyZ -= 0.3;
 
             if (enemyZ < 50) { enemyZ = 500; enemyX = (Math.random()-0.5)*200; enemyY = (Math.random()-0.5)*100; }
@@ -218,9 +273,9 @@
                 ];
             });
 
-            ctx.strokeStyle = '#0f0';
+            ctx.strokeStyle = themeColor;
             ctx.lineWidth = 1.5;
-            ctx.shadowColor = '#0f0';
+            ctx.shadowColor = themeColor;
             ctx.shadowBlur = 2;
 
             for (const [a, b] of ship.edges) {
@@ -238,6 +293,7 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, 800, 600);
 
+            updateInput();
             drawStars();
 
             angleX += 0.012;
@@ -249,15 +305,15 @@
                 drawCockpit();
             } else {
                 const projected = ship.vertices.map(v => {
-                    let rv = rotateX(v, angleX);
-                    rv = rotateY(rv, angleY);
+                    let rv = rotateX(v, angleX + shipRotX);
+                    rv = rotateY(rv, angleY + shipRotY);
                     rv = rotateZ(rv, angleZ);
                     return project(rv);
                 });
 
-                ctx.strokeStyle = '#0f0';
+                ctx.strokeStyle = themeColor;
                 ctx.lineWidth = 1.5;
-                ctx.shadowColor = '#0f0';
+                ctx.shadowColor = themeColor;
                 ctx.shadowBlur = 2;
 
                 for (const [a, b] of ship.edges) {
