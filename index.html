@@ -97,7 +97,7 @@
         });
 
         function updateInput() {
-            const turnSpeed = 0.03;
+            const turnSpeed = 0.015;
             if (keys['ArrowLeft']) inputY -= turnSpeed;
             if (keys['ArrowRight']) inputY += turnSpeed;
             if (keys['ArrowUp']) inputX -= turnSpeed;
@@ -142,7 +142,7 @@
         function drawStars() {
             ctx.fillStyle = '#fff';
             for (const star of stars) {
-                star.z -= 0.5;
+                star.z -= 0.15;
                 if (star.z < 1) star.z = 500;
                 const sx = (star.x / star.z) * 200 + 400;
                 const sy = (star.y / star.z) * 200 + 300;
@@ -363,7 +363,7 @@
             const depthScroll = terrainOffset % depthStep;
             const rowData = [];
 
-            terrainOffset += 2.2;
+            terrainOffset += 0.8;
 
             ctx.save();
             ctx.beginPath();
@@ -473,13 +473,12 @@
             updateInput();
             drawStars();
 
-            angleX += 0.012;
-            angleY += 0.018;
-            angleZ += 0.005;
+            angleX += 0.004;
+            angleY += 0.006;
+            angleZ += 0.002;
 
             if (cockpitView) {
                 drawTerrain();
-                drawEnemyShip();
                 drawCockpit();
             } else {
                 const projected = ship.vertices.map(v => {
