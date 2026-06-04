@@ -154,14 +154,48 @@
             }
         }
 
-        // Toinen alus joka lentää cockpit-näkymässä
         let enemyZ = 500;
         let enemyX = 0, enemyY = 0;
         let enemyDX = 0.3, enemyDY = 0.2;
 
         function drawCockpit() {
             ctx.strokeStyle = themeColor;
+            ctx.fillStyle = themeColor;
             ctx.lineWidth = 2;
+
+            const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+            const drawVerticalMeter = (x, y, w, h, label, value, ticks = 4) => {
+                ctx.strokeRect(x, y, w, h);
+                const fillHeight = h * clamp(value, 0, 1);
+                ctx.fillRect(x + 3, y + h - fillHeight + 3, w - 6, Math.max(fillHeight - 6, 0));
+                for (let i = 1; i < ticks; i++) {
+                    const ty = y + (h / ticks) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(x - 4, ty);
+                    ctx.lineTo(x + w + 4, ty);
+                    ctx.stroke();
+                }
+                ctx.fillText(label, x - 2, y - 6);
+            };
+            const drawHorizontalMeter = (x, y, w, h, label, value) => {
+                ctx.strokeRect(x, y, w, h);
+                ctx.fillRect(x + 3, y + 3, Math.max((w - 6) * clamp(value, 0, 1), 0), h - 6);
+                ctx.fillText(label, x, y - 4);
+            };
+
+            const roll = shipRotY;
+            const pitch = shipRotX;
+            const yawInput = inputY;
+            const pitchInput = inputX;
+            const motion = Math.abs(yawInput) + Math.abs(pitchInput);
+            const altitude = clamp(0.5 + pitch * 0.12 - yawInput * 0.18 + Math.sin(Date.now() * 0.0015) * 0.08, 0, 1);
+            const speed = clamp(0.58 + motion * 4 + Math.abs(roll) * 0.05, 0.12, 1);
+            const fuel = clamp(0.82 - motion * 1.2 - Math.abs(pitch) * 0.015 + Math.cos(Date.now() * 0.0006) * 0.03, 0.15, 0.95);
+            const energy = clamp(0.45 + Math.abs(roll) * 0.04 + Math.abs(pitchInput) * 3 + Math.sin(Date.now() * 0.0022 + roll) * 0.12, 0.1, 1);
+            const frontShield = clamp(0.78 - Math.abs(yawInput) * 4 + Math.cos(Date.now() * 0.002 + roll) * 0.08, 0.08, 1);
+            const rearShield = clamp(0.74 - Math.abs(pitchInput) * 4 + Math.sin(Date.now() * 0.0024 + pitch) * 0.08, 0.08, 1);
+            const cabinTemp = clamp(0.35 + Math.abs(pitch) * 0.05 + motion * 2 + Math.sin(Date.now() * 0.002 + pitch) * 0.08, 0.05, 1);
+            const laserTemp = clamp(0.28 + Math.abs(roll) * 0.05 + motion * 2.6 + Math.cos(Date.now() * 0.0025 + yawInput) * 0.08, 0.05, 1);
 
             // Ikkunakehys - trapetsi
             ctx.beginPath();
@@ -192,9 +226,24 @@
             ctx.lineTo(750, 420);
             ctx.stroke();
 
-            // Tähtäin keskellä
-            ctx.strokeStyle = themeColor;
             ctx.lineWidth = 1;
+            ctx.font = '10px Courier New';
+
+            // Horisontti ja keskisuuntaus
+            const horizonY = 250 + pitch * 220;
+            const horizonTilt = roll * 90;
+            ctx.beginPath();
+            ctx.moveTo(280, horizonY - horizonTilt);
+            ctx.lineTo(520, horizonY + horizonTilt);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(335, 250);
+            ctx.lineTo(360, 250);
+            ctx.moveTo(440, 250);
+            ctx.lineTo(465, 250);
+            ctx.stroke();
+
+            // Tähtäin keskellä
             ctx.beginPath();
             ctx.moveTo(390, 250);
             ctx.lineTo(410, 250);
@@ -203,39 +252,68 @@
             ctx.moveTo(400, 240);
             ctx.lineTo(400, 260);
             ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(400, 250, 18 + motion * 80, 0, Math.PI * 2);
+            ctx.stroke();
 
             // Radar/skanneri alaosassa
-            ctx.strokeStyle = themeColor;
-            ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.ellipse(400, 520, 100, 40, 0, 0, Math.PI * 2);
             ctx.stroke();
-            // Radar-viiva pyörii
-            const radarAngle = Date.now() * 0.003;
+            ctx.beginPath();
+            ctx.ellipse(400, 520, 60, 24, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(300, 520);
+            ctx.lineTo(500, 520);
+            ctx.moveTo(400, 480);
+            ctx.lineTo(400, 560);
+            ctx.stroke();
+            const radarAngle = Date.now() * 0.003 + roll * 0.7;
             ctx.beginPath();
             ctx.moveTo(400, 520);
             ctx.lineTo(400 + Math.cos(radarAngle) * 100, 520 + Math.sin(radarAngle) * 40);
             ctx.stroke();
+            const radarTargetX = clamp(400 + yawInput * 900, 320, 480);
+            const radarTargetY = clamp(520 + pitchInput * 700, 490, 550);
+            ctx.beginPath();
+            ctx.arc(radarTargetX, radarTargetY, 4, 0, Math.PI * 2);
+            ctx.stroke();
 
-            // Nopeusmittari vasemmalle
-            ctx.strokeStyle = themeColor;
-            ctx.lineWidth = 1;
-            ctx.font = '10px Courier New';
-            ctx.fillStyle = themeColor;
-            ctx.fillText('SPD', 70, 450);
-            ctx.strokeRect(65, 455, 15, 80);
-            ctx.fillRect(65, 535 - 50, 15, 50); // nopeus
+            // Vasen puoli: nopeus + korkeus
+            drawVerticalMeter(65, 455, 15, 80, 'SPD', speed);
+            drawVerticalMeter(92, 455, 15, 80, 'ALT', altitude);
 
-            // Polttoaine oikealle
-            ctx.fillText('FUL', 710, 450);
-            ctx.strokeRect(710, 455, 15, 80);
-            ctx.fillRect(710, 535 - 65, 15, 65); // polttoaine
+            // Oikea puoli: energia + polttoaine
+            drawVerticalMeter(683, 455, 15, 80, 'ENR', energy);
+            drawVerticalMeter(710, 455, 15, 80, 'FUL', fuel);
 
-            // Kompassi
-            ctx.fillText('S', 395, 440);
+            // Kompassi / heading indicator
+            const compassX = 400;
+            const compassY = 444;
+            const compassRadius = 22;
+            ctx.beginPath();
+            ctx.arc(compassX, compassY, compassRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            const compassMarks = ['N', 'E', 'S', 'W'];
+            for (let i = 0; i < compassMarks.length; i++) {
+                const ang = shipRotY + i * (Math.PI / 2) - Math.PI / 2;
+                const tx = compassX + Math.cos(ang) * (compassRadius - 7);
+                const ty = compassY + Math.sin(ang) * (compassRadius - 7) + 3;
+                ctx.fillText(compassMarks[i], tx - 3, ty);
+            }
+            ctx.beginPath();
+            ctx.moveTo(compassX, compassY - 30);
+            ctx.lineTo(compassX - 5, compassY - 22);
+            ctx.lineTo(compassX + 5, compassY - 22);
+            ctx.closePath();
+            ctx.stroke();
+
+            // Shieldit
+            drawHorizontalMeter(295, 446, 90, 12, 'FS', frontShield);
+            drawHorizontalMeter(415, 446, 90, 12, 'RS', rearShield);
 
             // Vasen/oikea paneelit
-            ctx.lineWidth = 1;
             for (let i = 0; i < 4; i++) {
                 ctx.strokeRect(100 + i * 35, 460, 30, 12);
                 ctx.strokeRect(560 + i * 35, 460, 30, 12);
@@ -249,8 +327,107 @@
             ctx.fillText('AL', 600, 490);
             ctx.fillText('MS', 635, 490);
             ctx.fillText('EC', 670, 490);
+
+            // Paneelien täyttöarvot
+            ctx.fillRect(103, 463, 24 * frontShield, 6);
+            ctx.fillRect(138, 463, 24 * altitude, 6);
+            ctx.fillRect(173, 463, 24 * fuel, 6);
+            ctx.fillRect(208, 463, 24 * cabinTemp, 6);
+            ctx.fillRect(563, 463, 24 * laserTemp, 6);
+            ctx.fillRect(598, 463, 24 * clamp((altitude + energy) * 0.5, 0, 1), 6);
+            ctx.fillRect(633, 463, 24 * speed, 6);
+            ctx.fillRect(668, 463, 24 * energy, 6);
+
+            // Lämpömittarit
+            drawHorizontalMeter(135, 510, 95, 10, 'CABIN TEMP', cabinTemp);
+            drawHorizontalMeter(570, 510, 95, 10, 'LASER TEMP', laserTemp);
+
+            // Lisätekstit ja liikedata
+            ctx.fillText(`P:${(pitch * 57.3).toFixed(0)}`, 112, 550);
+            ctx.fillText(`R:${(roll * 57.3).toFixed(0)}`, 112, 565);
+            ctx.fillText(`HDG ${(((shipRotY * 180 / Math.PI) % 360) + 360).toFixed(0)}`, 354, 474);
+            ctx.fillText(`VCTR ${(motion * 100).toFixed(0)}`, 610, 565);
         }
 
+        let terrainOffset = 0;
+
+        function drawTerrain() {
+            const windowTop = 80;
+            const windowBottom = 420;
+            const horizonY = 245 + shipRotX * 18 + inputX * 220;
+            const centerX = 400 - shipRotY * 140 - inputY * 380;
+            const cols = 12;
+            const rows = 20;
+            const spacing = 70;
+            const depthStep = 55;
+            const depthScroll = terrainOffset % depthStep;
+            const rowData = [];
+
+            terrainOffset += 2.2;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(100, windowTop);
+            ctx.lineTo(700, windowTop);
+            ctx.lineTo(750, windowBottom);
+            ctx.lineTo(50, windowBottom);
+            ctx.closePath();
+            ctx.clip();
+
+            ctx.strokeStyle = themeColor;
+            ctx.lineWidth = 1;
+
+            for (let row = 0; row < rows; row++) {
+                let worldZ = 120 + row * depthStep - depthScroll;
+                if (worldZ < 60) worldZ += rows * depthStep;
+
+                const points = [];
+                for (let col = 0; col < cols; col++) {
+                    const worldX = (col - (cols - 1) / 2) * spacing + shipRotY * 220;
+                    const sampleZ = worldZ + terrainOffset * 3;
+                    const height = Math.sin(worldX * 0.018 + sampleZ * 0.012) * 20 + Math.cos(sampleZ * 0.02 - worldX * 0.01) * 12;
+                    const scale = 320 / (worldZ + 80);
+                    const screenX = centerX + worldX * scale;
+                    const screenY = horizonY + (82 - height + shipRotX * 90) * scale;
+                    points.push([screenX, screenY]);
+                }
+                rowData.push({ z: worldZ, points });
+            }
+
+            rowData.sort((a, b) => b.z - a.z);
+
+            for (let row = 0; row < rowData.length; row++) {
+                const currentRow = rowData[row].points;
+                for (let col = 0; col < currentRow.length - 1; col++) {
+                    const a = currentRow[col];
+                    const b = currentRow[col + 1];
+                    if (a[1] >= 210 || b[1] >= 210) {
+                        ctx.beginPath();
+                        ctx.moveTo(a[0], a[1]);
+                        ctx.lineTo(b[0], b[1]);
+                        ctx.stroke();
+                    }
+                }
+
+                if (row < rowData.length - 1) {
+                    const nextRow = rowData[row + 1].points;
+                    for (let col = 0; col < currentRow.length; col++) {
+                        const a = currentRow[col];
+                        const b = nextRow[col];
+                        if (a[1] >= 210 || b[1] >= 210) {
+                            ctx.beginPath();
+                            ctx.moveTo(a[0], a[1]);
+                            ctx.lineTo(b[0], b[1]);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+            ctx.restore();
+        }
+
+        // Toinen alus joka lentää cockpit-näkymässä
         function drawEnemyShip() {
             // Vihollisalus liikkuu + reagoi pelaajan ohjaukseen
             enemyX += enemyDX - inputY * 5;
@@ -301,6 +478,7 @@
             angleZ += 0.005;
 
             if (cockpitView) {
+                drawTerrain();
                 drawEnemyShip();
                 drawCockpit();
             } else {
